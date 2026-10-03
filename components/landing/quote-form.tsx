@@ -177,7 +177,7 @@ export function QuoteForm() {
             </div>
 
             <Button type="submit" size="lg" className="w-full sm:w-auto">
-              Nhận báo giá
+              Xem báo giá miễn phí
             </Button>
 
             {submitted && (
