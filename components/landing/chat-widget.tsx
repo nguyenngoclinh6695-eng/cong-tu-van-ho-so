@@ -30,6 +30,14 @@ export function ChatWidget() {
   const [messages, setMessages] = React.useState<Message[]>(initialMessages);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const scrollEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Tự động trượt xuống cuối khung chat mỗi khi có tin nhắn mới hoặc bot đang trả lời,
+  // để người dùng luôn thấy câu hỏi/trả lời gần nhất mà không cần tự cuộn.
+  React.useEffect(() => {
+    if (!open) return;
+    scrollEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [open, messages, loading]);
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -105,6 +113,7 @@ export function ChatWidget() {
                 </div>
               </div>
             )}
+            <div ref={scrollEndRef} />
           </div>
 
           <div className="border-t p-3">
