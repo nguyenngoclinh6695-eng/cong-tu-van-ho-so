@@ -19,6 +19,14 @@ function isValidSessionId(v: unknown): v is string {
   return typeof v === "string" && SESSION_ID_RE.test(v);
 }
 
+// Kiểm tra trước, trả lỗi JSON rõ ràng thay vì để getSupabaseAdmin() throw giữa chừng
+// (uncaught exception ở route handler sẽ chỉ ra 500 rỗng, không nói được thiếu biến gì).
+function missingSupabaseEnv(): string | null {
+  if (!process.env.SUPABASE_URL) return "Thiếu biến môi trường SUPABASE_URL trên server.";
+  if (!process.env.SUPABASE_SECRET_KEY) return "Thiếu biến môi trường SUPABASE_SECRET_KEY trên server.";
+  return null;
+}
+
 // Lấy conversation của session này, tạo mới nếu chưa có. Mỗi khách (session_id) chỉ có
 // một conversation duy nhất, mọi tin nhắn của họ dồn vào đó.
 async function getOrCreateConversation(sessionId: string) {
@@ -65,33 +73,44 @@ async function loadHistory(conversationId: string, limit: number): Promise<Row[]
 // dùng khi khách mở lại khung chat (kể cả sau khi tắt trình duyệt, miễn sessionId
 // trong localStorage vẫn còn).
 export async function GET(request: Request) {
+  const envError = missingSupabaseEnv();
+  if (envError) {
+    return NextResponse.json({ error: envError }, { status: 500 });
+  }
+
   const sessionId = new URL(request.url).searchParams.get("sessionId");
   if (!isValidSessionId(sessionId)) {
     return NextResponse.json({ error: "sessionId không hợp lệ." }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin();
-  const { data: conversation, error } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("session_id", sessionId)
-    .limit(1)
-    .maybeSingle();
-  if (error) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: conversation, error } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("session_id", sessionId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!conversation) {
+      return NextResponse.json({ messages: [] });
+    }
+
+    const rows = await loadHistory(conversation.id as string, MAX_MESSAGES);
+    return NextResponse.json({ messages: rows.map((r) => ({ from: r.sender, text: r.content })) });
+  } catch {
     return NextResponse.json({ error: "Không đọc được dữ liệu hội thoại." }, { status: 500 });
   }
-  if (!conversation) {
-    return NextResponse.json({ messages: [] });
-  }
-
-  const rows = await loadHistory(conversation.id as string, MAX_MESSAGES);
-  return NextResponse.json({ messages: rows.map((r) => ({ from: r.sender, text: r.content })) });
 }
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "Chưa cấu hình GEMINI_API_KEY trên server." }, { status: 500 });
+  }
+  const envError = missingSupabaseEnv();
+  if (envError) {
+    return NextResponse.json({ error: envError }, { status: 500 });
   }
 
   const body = (await request.json().catch(() => null)) as { sessionId?: unknown; text?: unknown } | null;
