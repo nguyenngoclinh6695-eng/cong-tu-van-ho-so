@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
-import { OUT_OF_SCOPE_MARKER, systemInstruction } from "@/lib/qna";
+import { systemInstruction } from "@/lib/chat-config";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
@@ -150,18 +150,10 @@ export async function POST(request: Request) {
     },
   });
 
-  const raw = response.text?.trim();
-  if (!raw) {
+  const reply = response.text?.trim();
+  if (!reply) {
     return NextResponse.json({ error: "Gemini không trả về nội dung." }, { status: 502 });
   }
-
-  // Ghi log câu hỏi bot không trả lời được để xem lại và bổ sung vào bộ QnA.
-  const isOutOfScope = raw.startsWith(OUT_OF_SCOPE_MARKER);
-  if (isOutOfScope) {
-    console.info("[chat:ngoai-pham-vi]", JSON.stringify({ at: new Date().toISOString(), question: text }));
-  }
-
-  const reply = raw.replace(OUT_OF_SCOPE_MARKER, "").trim();
 
   try {
     await insertMessage(conversationId, "bot", reply);

@@ -4,7 +4,7 @@ import React from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { quickQuestions } from "@/lib/qna";
+import { quickQuestions } from "@/lib/chat-config";
 
 interface Message {
   from: "bot" | "user";
@@ -14,7 +14,7 @@ interface Message {
 const copy = {
   title: "Hỏi đáp nhanh",
   subtitle: "Thường trả lời trong vài phút",
-  greeting: "Chào bạn! Mình là trợ lý ảo của DuHoc24, bạn cần hỗ trợ gì về hồ sơ du học?",
+  greeting: "Chào bạn! Mình là trợ lý tư vấn du học, rất vui được đồng hành cùng bạn. Bạn cần mình hỗ trợ gì hôm nay?",
   placeholder: "Nhập câu hỏi của bạn...",
   thinking: "Đang trả lời...",
   errorPrefix: "Xin lỗi, mình chưa trả lời được lúc này",
