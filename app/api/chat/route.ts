@@ -54,7 +54,9 @@ async function insertMessage(conversationId: string, sender: Sender, content: st
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("messages").insert({ conversation_id: conversationId, sender, content });
   if (error) throw error;
-  await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId);
+  // conversations.last_message_at được một trigger trong Postgres tự cập nhật (xem
+  // migration trigger_touch_conversation_last_message_at) — không tự set ở đây nữa để
+  // tránh lệch giờ giữa máy chủ Next.js và database.
 }
 
 async function loadHistory(conversationId: string, limit: number): Promise<Row[]> {

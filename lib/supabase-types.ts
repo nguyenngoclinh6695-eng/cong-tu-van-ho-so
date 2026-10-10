@@ -33,6 +33,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      leads: {
+        Row: {
+          availability: string | null;
+          conversation_id: string;
+          country: string | null;
+          education_level: string | null;
+          email: string | null;
+          extracted_at: string;
+          full_name: string | null;
+          id: string;
+          major: string | null;
+          note: string | null;
+          phone: string | null;
+          quality: string;
+          wants_consultation: boolean | null;
+        };
+        Insert: {
+          availability?: string | null;
+          conversation_id: string;
+          country?: string | null;
+          education_level?: string | null;
+          email?: string | null;
+          extracted_at?: string;
+          full_name?: string | null;
+          id?: string;
+          major?: string | null;
+          note?: string | null;
+          phone?: string | null;
+          quality: string;
+          wants_consultation?: boolean | null;
+        };
+        Update: {
+          availability?: string | null;
+          conversation_id?: string;
+          country?: string | null;
+          education_level?: string | null;
+          email?: string | null;
+          extracted_at?: string;
+          full_name?: string | null;
+          id?: string;
+          major?: string | null;
+          note?: string | null;
+          phone?: string | null;
+          quality?: string;
+          wants_consultation?: boolean | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "leads_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: true;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       messages: {
         Row: {
           content: string;
