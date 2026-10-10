@@ -25,12 +25,55 @@ const copy = {
 
 const initialMessages: Message[] = [{ from: "bot", text: copy.greeting }];
 
+// Id ẩn danh để gộp các tin nhắn của cùng một khách vào một hội thoại trong Supabase.
+// Không phải thông tin nhạy cảm (chỉ là id ngẫu nhiên), lưu trong localStorage nên
+// còn nguyên cả khi khách tắt trình duyệt rồi quay lại trên cùng máy/trình duyệt đó.
+const SESSION_STORAGE_KEY = "duhoc24_chat_session_id";
+
+function getOrCreateSessionId(): string {
+  try {
+    const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const created = window.crypto.randomUUID();
+    window.localStorage.setItem(SESSION_STORAGE_KEY, created);
+    return created;
+  } catch {
+    // Trình duyệt chặn localStorage (chế độ ẩn danh, v.v.): vẫn tạo được id để dùng
+    // trong phiên này, chỉ là không nhớ được giữa các lần tải trang.
+    return window.crypto.randomUUID();
+  }
+}
+
 export function ChatWidget() {
   const [open, setOpen] = React.useState(false);
   const [messages, setMessages] = React.useState<Message[]>(initialMessages);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  // Tính ngay trong lần render đầu tiên ở trình duyệt (window tồn tại) thay vì trong effect,
+  // để tránh setState đồng bộ trong effect. Khi render trên server, window chưa có nên trả về
+  // null — client sẽ tự tính lại id thật ngay lần render đầu của nó, không gây lệch hydrate
+  // vì id không được dùng để vẽ giao diện.
+  const [sessionId] = React.useState<string | null>(() =>
+    typeof window === "undefined" ? null : getOrCreateSessionId(),
+  );
   const scrollEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Nạp lại lịch sử hội thoại đã lưu trong Supabase ngay khi có sessionId, thay vì chỉ
+  // dựa vào bộ nhớ tạm trong component. Nếu khách chưa từng chat, giữ nguyên lời chào.
+  React.useEffect(() => {
+    if (!sessionId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/chat?sessionId=${encodeURIComponent(sessionId)}`);
+        const data = (await res.json()) as { messages?: Message[] };
+        if (res.ok && data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+        }
+      } catch {
+        // Không nạp được lịch sử cũ: vẫn để khách chat bình thường với lời chào mặc định.
+      }
+    })();
+  }, [sessionId]);
 
   // Tự động trượt xuống cuối khung chat mỗi khi có tin nhắn mới hoặc bot đang trả lời,
   // để người dùng luôn thấy câu hỏi/trả lời gần nhất mà không cần tự cuộn.
@@ -41,10 +84,9 @@ export function ChatWidget() {
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || !sessionId) return;
 
-    const next: Message[] = [...messages, { from: "user", text: trimmed }];
-    setMessages(next);
+    setMessages((prev) => [...prev, { from: "user", text: trimmed }]);
     setInput("");
     setLoading(true);
 
@@ -52,7 +94,7 @@ export function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ sessionId, text: trimmed }),
       });
       const data = (await res.json()) as { reply?: string; error?: string };
       if (!res.ok || !data.reply) {
